@@ -6,7 +6,7 @@
     "deepseek-web": {
       "type": "stdio",
       "command": "node",
-      "args": ["E:/Developer/01-GeekXtop/_AI/deepseek-web-plugin/server.mjs"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server.mjs"]
     }
   }
 }
