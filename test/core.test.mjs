@@ -113,3 +113,14 @@ test('formatFetchOutput 超长截断加注且总长不超 50000', () => {
   assert.ok(out.length <= 50000)
   assert.ok(out.includes('(内容已截断。请抓取更具体的 URL 或页面片段。)'))
 })
+
+test('formatFetchOutput 截断不切半个代理对（奇/偶两种预算口径都覆盖）', () => {
+  const mk = padLen => 'x'.repeat(padLen) + '😀'.repeat(10000)
+  for (const [url, padLen] of [['https://x.example', 40000], ['https://x.example2', 40001]]) {
+    const out = formatFetchOutput(url, mk(padLen))
+    const stripped = out.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/gu, '')
+    assert.ok(!/[\uD800-\uDFFF]/u.test(stripped), `url=${url} 输出含孤立代理对`)
+    assert.ok(out.length <= 50000)
+    assert.ok(out.includes('(内容已截断'))
+  }
+})

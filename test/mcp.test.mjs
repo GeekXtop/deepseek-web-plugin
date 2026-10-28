@@ -1,6 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
 import { createMcpServer, SERVER_INFO, TOOLS } from '../server.mjs'
+
+const execFileAsync = promisify(execFile)
 
 const SEARCH_NOTICE_HEADING = '不可信数据'
 
@@ -169,4 +174,39 @@ test('ping 返回空结果', async () => {
   const handle = createMcpServer({ apiClient: recordingClient() })
   const res = JSON.parse(await handle(JSON.stringify({ jsonrpc: '2.0', id: 12, method: 'ping' })))
   assert.deepEqual(res.result, {})
+})
+
+test('initialize 客户端版本不受支持时回服务端最新支持版', async () => {
+  const handle = createMcpServer({ apiClient: recordingClient() })
+  const res = JSON.parse(await handle(JSON.stringify({ jsonrpc: '2.0', id: 14, method: 'initialize', params: { protocolVersion: '2099-01-01' } })))
+  assert.equal(res.result.protocolVersion, '2025-06-18')
+})
+
+test('initialize 结果带非空 instructions', async () => {
+  const handle = createMcpServer({ apiClient: recordingClient() })
+  const res = JSON.parse(await handle(JSON.stringify({ jsonrpc: '2.0', id: 15, method: 'initialize', params: {} })))
+  assert.equal(typeof res.result.instructions, 'string')
+  assert.ok(res.result.instructions.length > 0)
+})
+
+test('JSON-RPC 边缘形状：标量/批包 -32600，空行忽略，坏 JSON 仍 -32700', async () => {
+  const handle = createMcpServer({ apiClient: recordingClient() })
+  const scalar = JSON.parse(await handle('5'))
+  assert.equal(scalar.error.code, -32600)
+  const batch = JSON.parse(await handle('[{"jsonrpc":"2.0","id":1,"method":"tools/list"}]'))
+  assert.equal(batch.error.code, -32600)
+  assert.equal(await handle(''), null)
+  assert.equal(await handle('   '), null)
+  const badJson = JSON.parse(await handle('{oops'))
+  assert.equal(badJson.error.code, -32700)
+})
+
+test('argv[1] 为 undefined 的嵌入宿主 import server.mjs 不崩', async () => {
+  const serverUrl = new URL('../server.mjs', import.meta.url).href
+  try {
+    const { stderr } = await execFileAsync(process.execPath, ['-e', `import(${JSON.stringify(serverUrl)})`])
+    assert.equal(stderr, '')
+  } catch (err) {
+    assert.fail(`import 期崩溃：${err.stderr ?? err.message}`)
+  }
 })
