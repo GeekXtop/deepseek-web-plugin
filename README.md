@@ -46,7 +46,7 @@ server 只读进程环境变量 `DEEPSEEK_API_KEY`，两种注入路径殊途同
       "deepseek-web": {
         "type": "stdio",
         "command": "node",
-        "args": ["E:/Developer/01-GeekXtop/_AI/deepseek-web-plugin/server.mjs"],
+        "args": ["/path/to/deepseek-web-plugin/server.mjs"],
         "env": { "DEEPSEEK_API_KEY": "sk-..." }
       }
     }

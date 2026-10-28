@@ -8,7 +8,7 @@
 
 ## 目标
 
-1. 插件目录 `E:\Developer\01-GeekXtop\_AI\deepseek-web-plugin\`：
+1. 插件目录（仓库根目录）：
    ```
    deepseek-web-plugin/
    ├─ .zcode-plugin/plugin.json   ← manifest，mcpServers 内联注册 server
