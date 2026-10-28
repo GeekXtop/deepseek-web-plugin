@@ -20,25 +20,21 @@ server 是标准 MCP stdio（Node ≥18，零 npm 依赖），只对外发起两
 
 ## Key 配在哪里
 
-server 只读进程环境变量 `DEEPSEEK_API_KEY`，三个落点殊途同归，按顺手程度排序：
+**唯一方式：本机 `~/.zcode/cli/config.json` 的 `mcp.servers.deepseek-web` 条目的 `env` 字段。**
 
-1. **`~/.zcode/cli/config.json` 的 `mcp.servers` 条目 `env`（推荐）**——key 存在你用户级配置里：不在插件目录、不进 git、不污染系统环境变量。走下面路径 ①②任一都行。
-2. **插件清单 `.zcode-plugin/plugin.json` 的 `mcpServers.env`**——装完插件顺手一填。注意该文件**被 git 跟踪**，真实 key 只留本机、切勿提交。
-3. **系统环境变量 `DEEPSEEK_API_KEY`**——key 不落任何文件，最干净，但要在系统设置里操作，略重。
+server 只读进程环境变量 `DEEPSEEK_API_KEY`，由 ZCode 在注册 MCP server 时从该条目注入。key 存你用户级配置里：不在插件目录、不进 git、不动系统环境变量。走下面哪条安装路径，key 都只配在这一处。
 
 ## 安装
 
-### 路径 ① ZCode 插件安装（推荐）
+### 路径 ① ZCode 插件安装
 
-1. 按上面「Key 配在哪里」任选一处，把 `DEEPSEEK_API_KEY` 配好（推荐 config.json）。
-2. 打开 ZCode **Settings → Plugin Management → Discover**，点 **`+`** 添加本地目录，选择本插件目录（含 `.zcode-plugin/plugin.json`）。
+1. 打开 ZCode **Settings → Plugin Management → Discover**，点 **`+`** 添加本地目录，选择本插件目录（含 `.zcode-plugin/plugin.json`）。
+2. 按下面路径 ② 在 `config.json` 建同名条目并配好 `env`——同名条目会覆盖插件清单的注册，key 从这里注入。
 3. 新开会话即自动连接，`/mcp` 或 Settings → MCP 可确认 `deepseek-web` 已连接。
 
-> 提醒：如果你把真实 key 填进了 `.zcode-plugin/plugin.json` 的 env，该改动只留在本机、**切勿提交**——否则一次 `git add` + 推送即泄漏。
+### 路径 ② ZCode config.json 手动注册
 
-### 路径 ② ZCode config.json 手动注册（兜底）
-
-不装插件、只注册 MCP server——把下面一段并进 `~/.zcode/cli/config.json` 的 `mcp.servers`：
+不装插件、只注册 MCP server——把下面一段并进 `~/.zcode/cli/config.json` 的 `mcp.servers`（**key 就配在这里的 `env`，这是唯一方式**）：
 
 ```json
 {
@@ -55,7 +51,7 @@ server 只读进程环境变量 `DEEPSEEK_API_KEY`，三个落点殊途同归，
 }
 ```
 
-（`args` 换成你的实际路径；Key 也可以留在系统环境变量 `DEEPSEEK_API_KEY` 里，`env` 字段省略。）
+（`args` 换成你的实际路径。装了插件的情况下，这条同名条目会覆盖插件清单的注册，所以插件安装也走这里配 key。）
 
 ### 路径 ③ 其他 MCP harness（Claude Code / Codex 等）
 

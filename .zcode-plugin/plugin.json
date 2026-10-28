@@ -6,10 +6,7 @@
     "deepseek-web": {
       "type": "stdio",
       "command": "node",
-      "args": ["E:/Developer/01-GeekXtop/_AI/deepseek-web-plugin/server.mjs"],
-      "env": {
-        "DEEPSEEK_API_KEY": "<在此填入你的 DeepSeek API Key>"
-      }
+      "args": ["E:/Developer/01-GeekXtop/_AI/deepseek-web-plugin/server.mjs"]
     }
   }
 }

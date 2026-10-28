@@ -385,7 +385,7 @@ export function createMcpServer({ apiClient }) {
 function withKeyGuard(apiClient, apiKey) {
   if (apiKey !== undefined && apiKey.length > 0) return apiClient
   const missing = async () => {
-    throw new Error('未配置 DEEPSEEK_API_KEY：请在 mcpServers 条目的 env 中设置，或导出到启动环境。')
+    throw new Error('未配置 DEEPSEEK_API_KEY：请在本机 ~/.zcode/cli/config.json 的 mcp.servers.deepseek-web 条目的 env 字段中设置。')
   }
   return { search: missing, fetchPage: missing }
 }
