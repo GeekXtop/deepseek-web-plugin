@@ -22,9 +22,11 @@ server 是标准 MCP stdio（Node ≥18，零 npm 依赖），只对外发起两
 
 ### 路径 ① ZCode 插件安装（推荐）
 
-1. 打开 ZCode **Settings → Plugin Management → Discover**，点 **`+`** 添加本地目录，选择本插件目录（含 `.zcode-plugin/plugin.json`）。
-2. 首次使用前编辑 `.zcode-plugin/plugin.json`，把 `mcpServers["deepseek-web"].env.DEEPSEEK_API_KEY` 的占位符换成你的真实 Key。
+1. **先设置系统环境变量 `DEEPSEEK_API_KEY`**（Win11：设置 → 系统 → 高级系统设置 → 环境变量；或仅在启动 ZCode 的终端里 `export`/`$env:` 设置）。server 优先读取进程环境里的这个变量——key 不落任何文件，也就不会随仓库提交泄漏。
+2. 打开 ZCode **Settings → Plugin Management → Discover**，点 **`+`** 添加本地目录，选择本插件目录（含 `.zcode-plugin/plugin.json`）。
 3. 新开会话即自动连接，`/mcp` 或 Settings → MCP 可确认 `deepseek-web` 已连接。
+
+> `.zcode-plugin/plugin.json` 的 `env.DEEPSEEK_API_KEY` 字段是模板占位符：如果你选择把真实 key 填在那里，**该改动只留在本机、切勿提交**（否则一次 `git add` + 推送即泄漏）。不填它、只用系统环境变量即可。
 
 ### 路径 ② ZCode config.json 手动注册（兜底）
 
