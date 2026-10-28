@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
@@ -57,9 +58,10 @@ test('tools/list 返回两个工具与 schema 要点', async () => {
   assert.deepEqual(res.result.tools[1].inputSchema.required, ['url'])
 })
 
-test('TOOLS 常量与 tools/list 同构', () => {
+test('TOOLS 常量与 tools/list 同构，SERVER_INFO 版本与 manifest 一致', () => {
   assert.equal(TOOLS.length, 2)
-  assert.equal(SERVER_INFO.version, '0.1.0')
+  const manifest = JSON.parse(readFileSync(new URL('../.zcode-plugin/plugin.json', import.meta.url), 'utf8'))
+  assert.equal(SERVER_INFO.version, manifest.version)
 })
 
 test('search 调用：多 query 并发、共享 URL 去重、ori_question 经 boundQuestion', async () => {
