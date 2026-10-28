@@ -91,6 +91,16 @@ test('search summary 超 800 码点被截断后进输出', async () => {
   assert.ok(!text.includes('s'.repeat(1000)))
 })
 
+test('search 空结果 → 成功输出「没有搜索结果。」而非错误', async () => {
+  const handle = createMcpServer({ apiClient: recordingClient({ results: [] }) })
+  const res = JSON.parse(await handle(JSON.stringify({
+    jsonrpc: '2.0', id: 13, method: 'tools/call',
+    params: { name: 'deepseek_web_search', arguments: { queries: ['q'] } },
+  })))
+  assert.equal(res.result.isError, undefined)
+  assert.ok(res.result.content[0].text.includes('没有搜索结果。'))
+})
+
 test('search 上游错误 → isError 文本为错误消息', async () => {
   const apiClient = recordingClient({ error: new Error('DeepSeek API 错误（HTTP 500）') })
   const handle = createMcpServer({ apiClient })

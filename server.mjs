@@ -151,14 +151,19 @@ export function extractApiErrorMessage(body) {
   return ''
 }
 
-/** 请求起始间隔不小于 minIntervalMs（账号级 5 QPS 保守口径）。 */
+/** 请求起始间隔不小于 minIntervalMs（账号级 5 QPS 保守口径）。并发 acquire 串行排队，不齐发。 */
 export function createRateLimiter(minIntervalMs) {
   let lastStart = Number.NEGATIVE_INFINITY
+  let tail = Promise.resolve()
   return {
-    async acquire() {
-      const wait = lastStart + minIntervalMs - Date.now()
-      if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
-      lastStart = Date.now()
+    acquire() {
+      const run = tail.then(async () => {
+        const wait = lastStart + minIntervalMs - Date.now()
+        if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
+        lastStart = Date.now()
+      })
+      tail = run.catch(() => {})
+      return run
     },
   }
 }
@@ -219,9 +224,9 @@ export function createApiClient({
   const base = baseUrl.replace(/\/+$/u, '')
 
   async function dispatch(path, body, map) {
-    await limiter.acquire()
     let response
     for (let attempt = 0; ; attempt++) {
+      await limiter.acquire()
       try {
         response = await fetchImpl(base + path, {
           method: 'POST',

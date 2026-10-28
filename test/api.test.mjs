@@ -16,8 +16,8 @@ function stubFetch(responses, log = []) {
   }
 }
 
-function makeClient(fetchImpl, { delayImpl = async () => {}, apiKey = 'sk-test', baseUrl = 'https://api.deepseek.com/v1/tools' } = {}) {
-  return createApiClient({ baseUrl, apiKey, fetchImpl, delayImpl, limiter: createRateLimiter(0) })
+function makeClient(fetchImpl, { delayImpl = async () => {}, apiKey = 'sk-test', baseUrl = 'https://api.deepseek.com/v1/tools', limiter } = {}) {
+  return createApiClient({ baseUrl, apiKey, fetchImpl, delayImpl, limiter: limiter ?? createRateLimiter(0) })
 }
 
 test('decideRetry 只对 408/429/5xx 重试', () => {
@@ -38,6 +38,28 @@ test('limiter 强制请求起始间隔', async () => {
   const start = Date.now()
   await limiter.acquire()
   assert.ok(Date.now() - start >= 40, `间隔不足: ${Date.now() - start}ms`)
+})
+
+test('limiter 并发 acquire 串行排队，不齐发', async () => {
+  const limiter = createRateLimiter(50)
+  const starts = []
+  const fire = async () => { await limiter.acquire(); starts.push(Date.now()) }
+  await Promise.all([fire(), fire(), fire(), fire()])
+  starts.sort((x, y) => x - y)
+  for (let i = 1; i < starts.length; i++) {
+    assert.ok(starts[i] - starts[i - 1] >= 40, `第 ${i + 1} 个请求与前一个间隔仅 ${starts[i] - starts[i - 1]}ms`)
+  }
+})
+
+test('每次真实请求（含重试）都过限速闸', async () => {
+  const acquires = []
+  const limiter = { acquire: async () => { acquires.push(Date.now()) } }
+  const client = makeClient(stubFetch([
+    { status: 429, body: '{"error":"x"}' },
+    { payload: { results: [{ url: 'https://a', title: '', snippet: '', date: null }] } },
+  ]), { limiter })
+  await client.search('q1')
+  assert.equal(acquires.length, 2)
 })
 
 test('search 成功：URL、四件套 headers、redirect:error、body 字段', async () => {
