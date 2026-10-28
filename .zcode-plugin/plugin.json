@@ -1,5 +1,15 @@
 {
   "name": "deepseek-web-plugin",
   "version": "0.1.0",
-  "description": "DeepSeek 联网搜索：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch）"
+  "description": "DeepSeek 联网搜索：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch）",
+  "mcpServers": {
+    "deepseek-web": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["E:/Developer/01-GeekXtop/_AI/deepseek-web-plugin/server.mjs"],
+      "env": {
+        "DEEPSEEK_API_KEY": "<在此填入你的 DeepSeek API Key>"
+      }
+    }
+  }
 }
