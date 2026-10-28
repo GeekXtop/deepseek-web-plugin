@@ -1,0 +1,5 @@
+{
+  "name": "deepseek-web-plugin",
+  "version": "0.1.0",
+  "description": "DeepSeek 联网搜索：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch）"
+}
