@@ -1,0 +1,18 @@
+{
+  "name": "deepseek-web-plugin",
+  "owner": {
+    "name": "GeekXtop"
+  },
+  "metadata": {
+    "description": "GeekXtop 的 ZCode 插件市场：DeepSeek 联网搜索等自用插件",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "deepseek-web-plugin",
+      "source": "./",
+      "description": "DeepSeek 联网搜索：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch），零依赖 Node stdio server",
+      "version": "0.1.0"
+    }
+  ]
+}
