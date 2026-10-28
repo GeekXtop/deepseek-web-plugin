@@ -257,6 +257,132 @@ export function createApiClient({
   }
 }
 
-// ── 入口壳（Task 3 接入协议层与 stdio 主循环） ──────────────────────
+// ── MCP 协议层（JSON-RPC 2.0 over stdio, newline-delimited） ────────
 
-export async function main() {}
+import { createInterface } from 'node:readline'
+import { pathToFileURL } from 'node:url'
+
+export const SERVER_INFO = { name: 'deepseek-web-plugin', version: '0.1.0' }
+export const DEFAULT_PROTOCOL_VERSION = '2025-06-18'
+export const DEFAULT_BASE_URL = 'https://api.deepseek.com/v1/tools'
+
+export const TOOLS = [
+  {
+    name: 'deepseek_web_search',
+    description: '用 DeepSeek 搜索引擎联网搜索，返回来源列表与摘要。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        queries: { type: 'array', items: { type: 'string' }, description: '1-4 个搜索词' },
+        ori_question: { type: 'string', description: '触发本次搜索的用户原始问题' },
+      },
+      required: ['queries'],
+    },
+  },
+  {
+    name: 'deepseek_web_fetch',
+    description: '抓取指定网页，返回 Markdown 正文。',
+    inputSchema: {
+      type: 'object',
+      properties: { url: { type: 'string' } },
+      required: ['url'],
+    },
+  },
+]
+
+const jsonResponse = (id, result) => ({ jsonrpc: '2.0', id, result })
+const errorResponse = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } })
+
+/**
+ * 构造 MCP 协议处理器：每行一条 JSON-RPC 请求，返回响应行或 null（通知不回包）。
+ * 工具执行失败一律回 isError 结果（不外泄堆栈）；未知工具 -32602、未知方法 -32601、坏 JSON -32700。
+ */
+export function createMcpServer({ apiClient }) {
+  async function runSearch(args) {
+    const { queries, oriQuestion } = parseSearchArgs(args)
+    const perQuery = await Promise.all(queries.map(query => apiClient.search(query, oriQuestion)))
+    const sources = perQuery.map(results => results.map(source => source.summary === undefined
+      ? source
+      : { ...source, summary: truncateSummary(source.summary) }))
+    return formatSearchOutput(mergeSearchResults(sources))
+  }
+
+  async function runFetch(args) {
+    const url = typeof args.url === 'string' ? args.url.trim() : ''
+    if (url.length === 0) throw new Error('url must be a non-empty string')
+    return formatFetchOutput(url, await apiClient.fetchPage(url))
+  }
+
+  async function toolsCall(id, params) {
+    const name = params?.name
+    const args = params?.arguments ?? {}
+    const run = name === 'deepseek_web_search' ? () => runSearch(args)
+      : name === 'deepseek_web_fetch' ? () => runFetch(args)
+      : undefined
+    if (run === undefined) return JSON.stringify(errorResponse(id, -32602, `Unknown tool: ${String(name)}`))
+    try {
+      const text = await run()
+      return JSON.stringify(jsonResponse(id, { content: [{ type: 'text', text }] }))
+    } catch (err) {
+      return JSON.stringify(jsonResponse(id, { content: [{ type: 'text', text: err.message }], isError: true }))
+    }
+  }
+
+  return async function handleLine(line) {
+    let message
+    try {
+      message = JSON.parse(line)
+      if (typeof message !== 'object' || message === null) throw new Error()
+    } catch {
+      return JSON.stringify(errorResponse(null, -32700, 'Parse error'))
+    }
+    const { id, method, params } = message
+    if (!('id' in message)) return null
+    if (typeof method !== 'string') return JSON.stringify(errorResponse(id, -32600, 'Invalid Request'))
+    switch (method) {
+      case 'initialize':
+        return JSON.stringify(jsonResponse(id, {
+          protocolVersion: typeof params?.protocolVersion === 'string' ? params.protocolVersion : DEFAULT_PROTOCOL_VERSION,
+          capabilities: { tools: {} },
+          serverInfo: SERVER_INFO,
+        }))
+      case 'ping':
+        return JSON.stringify(jsonResponse(id, {}))
+      case 'tools/list':
+        return JSON.stringify(jsonResponse(id, { tools: TOOLS }))
+      case 'tools/call':
+        return toolsCall(id, params)
+      default:
+        return JSON.stringify(errorResponse(id, -32601, `Method not found: ${method}`))
+    }
+  }
+}
+
+/** key 缺失时不预失败：推迟到 tools/call 才报可读的配置指引错误。 */
+function withKeyGuard(apiClient, apiKey) {
+  if (apiKey !== undefined && apiKey.length > 0) return apiClient
+  const missing = async () => {
+    throw new Error('未配置 DEEPSEEK_API_KEY：请在 mcpServers 条目的 env 中设置，或导出到启动环境。')
+  }
+  return { search: missing, fetchPage: missing }
+}
+
+/** stdio 主循环：stdin 按行读，非 null 响应写 stdout。 */
+export async function main() {
+  const apiKey = process.env.DEEPSEEK_API_KEY
+  const baseUrl = process.env.DEEPSEEK_WEB_API_BASE || DEFAULT_BASE_URL
+  const apiClient = withKeyGuard(createApiClient({ baseUrl, apiKey: apiKey ?? '' }), apiKey)
+  const handleLine = createMcpServer({ apiClient })
+  const rl = createInterface({ input: process.stdin, crlfDelay: Infinity })
+  for await (const line of rl) {
+    const response = await handleLine(line)
+    if (response !== null) process.stdout.write(`${response}\n`)
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    process.stderr.write(`${err?.stack ?? err}\n`)
+    process.exitCode = 1
+  })
+}
