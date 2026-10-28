@@ -132,6 +132,131 @@ export function formatFetchOutput(url, content) {
   return header + body + FETCH_TRUNCATION_FOOTER
 }
 
+// ── API 层（Search/Fetch 客户端：重试矩阵、限速、错误映射） ─────────
+
+const USER_AGENT = 'deepseek-web-plugin/0.1.0'
+const RETRY_DELAYS_MS = [1000, 2000]
+
+/** 仅 408/429/5xx 属可重试失败。 */
+export function decideRetry(status) {
+  return status === 408 || status === 429 || status >= 500
+}
+
+/** 从上游错误体提取 detail：error 字符串 / error.message / message。 */
+export function extractApiErrorMessage(body) {
+  if (!isRecord(body)) return ''
+  if (typeof body.error === 'string') return body.error
+  if (isRecord(body.error) && typeof body.error.message === 'string') return body.error.message
+  if (typeof body.message === 'string') return body.message
+  return ''
+}
+
+/** 请求起始间隔不小于 minIntervalMs（账号级 5 QPS 保守口径）。 */
+export function createRateLimiter(minIntervalMs) {
+  let lastStart = Number.NEGATIVE_INFINITY
+  return {
+    async acquire() {
+      const wait = lastStart + minIntervalMs - Date.now()
+      if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
+      lastStart = Date.now()
+    },
+  }
+}
+
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function invalidResponse() {
+  return new Error('DeepSeek returned an invalid response body')
+}
+
+/** 校验 Search 响应并映射为 Source[]；空 results 是合法成功。 */
+export function mapSearchResponse(payload) {
+  if (!isRecord(payload) || !Array.isArray(payload.results)) throw invalidResponse()
+  return payload.results.map((item) => {
+    if (!isRecord(item) || typeof item.url !== 'string' || item.url.length === 0
+      || typeof item.title !== 'string' || typeof item.snippet !== 'string'
+      || (item.summary !== undefined && typeof item.summary !== 'string')
+      || (item.date !== null && typeof item.date !== 'string')) throw invalidResponse()
+    const source = { url: item.url }
+    if (item.title.length > 0) source.title = item.title
+    if (item.snippet.length > 0) source.snippet = item.snippet
+    if (typeof item.summary === 'string' && item.summary.length > 0) source.summary = item.summary
+    if (item.date) source.publishedAt = item.date
+    return source
+  })
+}
+
+/** 校验 Fetch 响应并映射为 { title?, content }。 */
+export function mapFetchResponse(payload) {
+  if (!isRecord(payload) || typeof payload.content !== 'string') throw invalidResponse()
+  return {
+    content: payload.content,
+    ...(typeof payload.title === 'string' && payload.title.length > 0 ? { title: payload.title } : {}),
+  }
+}
+
+/** 402/401 专属文案；其余透传 detail，无 detail 时不带尾随冒号。 */
+function apiErrorMessage(status, detail) {
+  if (status === 402) return 'DeepSeek API 余额不足（HTTP 402）：请充值后重试。'
+  if (status === 401) return 'DeepSeek API 鉴权失败（HTTP 401）：请检查 DEEPSEEK_API_KEY。'
+  return detail !== ''
+    ? `DeepSeek API 错误（HTTP ${status}）：${detail}`
+    : `DeepSeek API 错误（HTTP ${status}）`
+}
+
+/**
+ * Search/Fetch API 客户端。fetchImpl/delayImpl/limiter 均可注入（测试不碰真网络）；
+ * limiter 缺省 200ms，同一实例由 search/fetchPage 共享。
+ */
+export function createApiClient({
+  baseUrl, apiKey,
+  fetchImpl = fetch,
+  delayImpl = ms => new Promise(resolve => setTimeout(resolve, ms)),
+  limiter = createRateLimiter(200),
+}) {
+  const base = baseUrl.replace(/\/+$/u, '')
+
+  async function dispatch(path, body, map) {
+    await limiter.acquire()
+    let response
+    for (let attempt = 0; ; attempt++) {
+      try {
+        response = await fetchImpl(base + path, {
+          method: 'POST',
+          redirect: 'error',
+          headers: {
+            'authorization': `Bearer ${apiKey}`,
+            'content-type': 'application/json',
+            'accept': 'application/json',
+            'user-agent': USER_AGENT,
+          },
+          body: JSON.stringify(body),
+        })
+      } catch (err) {
+        throw new Error(`DeepSeek 请求失败：${err.message}`)
+      }
+      if (response.ok) break
+      if (attempt < RETRY_DELAYS_MS.length && decideRetry(response.status)) {
+        await delayImpl(RETRY_DELAYS_MS[attempt])
+        continue
+      }
+      let detail = ''
+      try { detail = extractApiErrorMessage(await response.json()) } catch { /* 非 JSON 错误体按无 detail 处理 */ }
+      throw new Error(apiErrorMessage(response.status, detail))
+    }
+    let payload
+    try { payload = await response.json() } catch { throw invalidResponse() }
+    return map(payload)
+  }
+
+  return {
+    search: (query, oriQuestion) => dispatch('/search', buildSearchBody(query, oriQuestion), mapSearchResponse),
+    fetchPage: async url => (await dispatch('/fetch', { url }, mapFetchResponse)).content,
+  }
+}
+
 // ── 入口壳（Task 3 接入协议层与 stdio 主循环） ──────────────────────
 
 export async function main() {}
