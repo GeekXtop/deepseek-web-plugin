@@ -18,15 +18,23 @@ server 是标准 MCP stdio（Node ≥18，零 npm 依赖），只对外发起两
 
 在 [DeepSeek 开放平台](https://platform.deepseek.com) 创建 API Key。计费：Search 与 Fetch 各 **¥5 / 1000 次成功请求**（失败、空结果不计费），与返回条数无关。限速按账号粒度共享（约 5 QPS 量级，多个会话/进程共用同一额度），server 内部已按请求间隔 ≥200ms 保守限速，408/429/5xx 自动退避重试两次。
 
+## Key 配在哪里
+
+server 只读进程环境变量 `DEEPSEEK_API_KEY`，三个落点殊途同归，按顺手程度排序：
+
+1. **`~/.zcode/cli/config.json` 的 `mcp.servers` 条目 `env`（推荐）**——key 存在你用户级配置里：不在插件目录、不进 git、不污染系统环境变量。走下面路径 ①②任一都行。
+2. **插件清单 `.zcode-plugin/plugin.json` 的 `mcpServers.env`**——装完插件顺手一填。注意该文件**被 git 跟踪**，真实 key 只留本机、切勿提交。
+3. **系统环境变量 `DEEPSEEK_API_KEY`**——key 不落任何文件，最干净，但要在系统设置里操作，略重。
+
 ## 安装
 
 ### 路径 ① ZCode 插件安装（推荐）
 
-1. **先设置系统环境变量 `DEEPSEEK_API_KEY`**（Win11：设置 → 系统 → 高级系统设置 → 环境变量；或仅在启动 ZCode 的终端里 `export`/`$env:` 设置）。server 优先读取进程环境里的这个变量——key 不落任何文件，也就不会随仓库提交泄漏。
+1. 按上面「Key 配在哪里」任选一处，把 `DEEPSEEK_API_KEY` 配好（推荐 config.json）。
 2. 打开 ZCode **Settings → Plugin Management → Discover**，点 **`+`** 添加本地目录，选择本插件目录（含 `.zcode-plugin/plugin.json`）。
 3. 新开会话即自动连接，`/mcp` 或 Settings → MCP 可确认 `deepseek-web` 已连接。
 
-> `.zcode-plugin/plugin.json` 的 `env.DEEPSEEK_API_KEY` 字段是模板占位符：如果你选择把真实 key 填在那里，**该改动只留在本机、切勿提交**（否则一次 `git add` + 推送即泄漏）。不填它、只用系统环境变量即可。
+> 提醒：如果你把真实 key 填进了 `.zcode-plugin/plugin.json` 的 env，该改动只留在本机、**切勿提交**——否则一次 `git add` + 推送即泄漏。
 
 ### 路径 ② ZCode config.json 手动注册（兜底）
 
