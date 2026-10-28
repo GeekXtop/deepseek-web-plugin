@@ -1,6 +1,6 @@
 {
   "name": "deepseek-web-plugin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DeepSeek 联网搜索：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch）",
   "mcpServers": {
     "deepseek-web": {
@@ -16,6 +16,7 @@
     "api_key": {
       "type": "string",
       "default": "",
+      "sensitive": true,
       "description": "DeepSeek API Key（sk- 开头）。留空则需在 config.json 用同名条目以 env 注入。"
     }
   }

@@ -12,7 +12,7 @@
       "name": "deepseek-web-plugin",
       "source": "./",
       "description": "DeepSeek 联网搜索：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch），零依赖 Node stdio server",
-      "version": "0.2.0"
+      "version": "0.2.1"
     }
   ]
 }
