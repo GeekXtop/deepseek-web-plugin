@@ -2,7 +2,7 @@
 
 # deepseek-web-plugin
 
-**DeepSeek 联网搜索的 ZCode 插件：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch），零依赖 Node stdio server**
+**把 DeepSeek 联网搜索装进任何 MCP 兼容的编码 agent**
 
 ![version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FGeekXtop%2Fdeepseek-web-plugin%2Fmain%2F.zcode-plugin%2Fplugin.json&query=%24.version&label=version&color=blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
