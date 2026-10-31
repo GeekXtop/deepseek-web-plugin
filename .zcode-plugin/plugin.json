@@ -1,7 +1,7 @@
 {
   "name": "deepseek-web-plugin",
   "version": "0.2.1",
-  "description": "DeepSeek 联网搜索：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch）",
+  "description": "DeepSeek 联网搜索的 ZCode 插件：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch），零依赖 Node stdio server",
   "mcpServers": {
     "deepseek-web": {
       "type": "stdio",

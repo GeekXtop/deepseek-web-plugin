@@ -2,12 +2,9 @@
 
 # deepseek-web-plugin
 
-**把 DeepSeek 联网搜索装进任何 MCP 兼容的编码 agent**
+**DeepSeek 联网搜索的 ZCode 插件：Search/Fetch API 的 MCP 工具（deepseek_web_search / deepseek_web_fetch），零依赖 Node stdio server**
 
-`deepseek_web_search` 联网搜来源 · `deepseek_web_fetch` 抓网页正文
-标准 MCP stdio · Node ≥ 18 · 零 npm 依赖
-
-![version](https://img.shields.io/badge/version-0.2.1-blue)
+![version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FGeekXtop%2Fdeepseek-web-plugin%2Fmain%2F.zcode-plugin%2Fplugin.json&query=%24.version&label=version&color=blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)
 ![dependencies](https://img.shields.io/badge/dependencies-0-success)
 
@@ -22,7 +19,7 @@
 | 工具 | 干什么 | 参数 |
 |---|---|---|
 | `deepseek_web_search` | 联网搜索，返回来源列表（标题 / URL / 摘要 / 发布时间） | `queries`：1–4 个搜索词，并发执行、按 URL 去重合并、最多 8 条；`ori_question`：可选，触发搜索的原始问题，帮助引擎理解意图 |
-| `deepseek_web_fetch` | 抓取指定网页，返回 Markdown 正文 | `url` |
+| `deepseek_web_fetch` | 抓取指定网页，返回 Markdown 正文（整体上限 5 万字符，超出自动截断） | `url` |
 
 > [!TIP]
 > 典型用法是二段式：先 `search` 拿来源（喂给模型的是摘要，截 800 码点，不是网页全文），再对值得深读的 URL 调 `fetch` 取全文——省 token，也快。
