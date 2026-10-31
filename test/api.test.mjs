@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  decideRetry, extractApiErrorMessage, createRateLimiter, createApiClient,
+  decideRetry, extractApiErrorMessage, createRateLimiter, createApiClient, SERVER_INFO,
 } from '../server.mjs'
 
 /** 构造 Response 序列的 stub fetch，记录每次调用。 */
@@ -73,7 +73,7 @@ test('search 成功：URL、四件套 headers、redirect:error、body 字段', a
   assert.equal(options.redirect, 'error')
   assert.deepEqual(Object.keys(options.headers).sort(), ['accept', 'authorization', 'content-type', 'user-agent'])
   assert.equal(options.headers.authorization, 'Bearer sk-test')
-  assert.equal(options.headers['user-agent'], 'deepseek-web-plugin/0.1.0')
+  assert.equal(options.headers['user-agent'], `${SERVER_INFO.name}/${SERVER_INFO.version}`)
   const body = JSON.parse(options.body)
   assert.deepEqual(body, { query: 'q1', count: 8, need_content: false, ori_question: '原始问题' })
 })

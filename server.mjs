@@ -146,7 +146,6 @@ export function formatFetchOutput(url, content) {
 
 // ── API 层（Search/Fetch 客户端：重试矩阵、限速、错误映射） ─────────
 
-const USER_AGENT = 'deepseek-web-plugin/0.1.0'
 const RETRY_DELAYS_MS = [1000, 2000]
 
 /** 仅 408/429/5xx 属可重试失败。 */
@@ -247,7 +246,7 @@ export function createApiClient({
             'authorization': `Bearer ${apiKey}`,
             'content-type': 'application/json',
             'accept': 'application/json',
-            'user-agent': USER_AGENT,
+            'user-agent': `${SERVER_INFO.name}/${SERVER_INFO.version}`, // 与 serverInfo 同源，防版本漂移
           },
           body: JSON.stringify(body),
         })
