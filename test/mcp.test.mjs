@@ -74,6 +74,7 @@ test('Antigravity 插件清单、mcp_config.json 与 SKILL.md 结构及版本一
 
   assert.equal(agyManifest.name, SERVER_INFO.name)
   assert.equal(agyManifest.version, SERVER_INFO.version)
+  assert.equal(agyManifest.version, marketplace.plugins[0].version)
   assert.equal(agyManifest.description, zcodeManifest.description)
   assert.equal(agyManifest.description, marketplace.plugins[0].description)
 
