@@ -10,6 +10,8 @@ export const MAX_QUERIES = 4
 export const SEARCH_MAX_RESULTS = 8
 export const SUMMARY_MAX_CHARS = 800
 export const ORIGINAL_QUESTION_MAX_CHARS = 128
+export const QUERY_MAX_CHARS = 128
+export const FETCH_URL_MAX_CHARS = 8192
 export const SEARCH_COUNT = 8
 export const FETCH_MAX_OUTPUT_CHARS = 50000
 
@@ -38,7 +40,7 @@ export function truncateSummary(summary) {
 }
 
 /**
- * 校验 web_search 参数：queries 为 1~4 个非空字符串（去重保序）；
+ * 校验 web_search 参数：queries 为 1~4 个非空字符串、每条不超 128 码点（去重保序）；
  * ori_question 非 string 忽略，否则经 boundQuestion。
  */
 export function parseSearchArgs(args) {
@@ -52,8 +54,38 @@ export function parseSearchArgs(args) {
   if (queries.some(query => typeof query !== 'string' || query.trim().length === 0)) {
     throw new Error('each query must be a non-empty string')
   }
+  if (queries.some(query => Array.from(query).length > QUERY_MAX_CHARS)) {
+    throw new Error(`each query must be at most ${QUERY_MAX_CHARS} characters`)
+  }
   const oriQuestion = typeof args.ori_question === 'string' ? boundQuestion(args.ori_question) : undefined
   return { queries: [...new Set(queries)], oriQuestion }
+}
+
+/**
+ * 校验 web_fetch 的 URL：非 string 或 trim 后为空、超 8192 码点、解析失败、
+ * 协议非 http/https、缺 hostname、含凭据均抛错；通过返回 trim 后的 URL。
+ */
+export function parseFetchUrl(rawUrl) {
+  if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) {
+    throw new Error('url must be a non-empty string')
+  }
+  const trimmed = rawUrl.trim()
+  if (Array.from(trimmed).length > FETCH_URL_MAX_CHARS) {
+    throw new Error(`url must be at most ${FETCH_URL_MAX_CHARS} characters`)
+  }
+  let url
+  try {
+    url = new URL(trimmed)
+  } catch {
+    throw new Error('url must be a valid http or https URL')
+  }
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.hostname.length === 0) {
+    throw new Error('url must be a valid http or https URL')
+  }
+  if (url.username.length > 0 || url.password.length > 0) {
+    throw new Error('url must not contain credentials')
+  }
+  return trimmed
 }
 
 /** 构造 Search API 请求体；oriQuestion 为空时省略 ori_question 字段。 */
@@ -325,8 +357,7 @@ export function createMcpServer({ apiClient }) {
   }
 
   async function runFetch(args) {
-    const url = typeof args.url === 'string' ? args.url.trim() : ''
-    if (url.length === 0) throw new Error('url must be a non-empty string')
+    const url = parseFetchUrl(args.url)
     return formatFetchOutput(url, await apiClient.fetchPage(url))
   }
 

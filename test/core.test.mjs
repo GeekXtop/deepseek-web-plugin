@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  boundQuestion, truncateSummary, parseSearchArgs, mergeSearchResults,
+  boundQuestion, truncateSummary, parseSearchArgs, parseFetchUrl, mergeSearchResults,
   formatSearchOutput, formatFetchOutput, SEARCH_NOTICE, FETCH_NOTICE,
 } from '../server.mjs'
 
@@ -53,6 +53,24 @@ test('parseSearchArgs 处理 ori_question：非字符串忽略，字符串经 bo
   assert.equal(parseSearchArgs({ queries: ['a'] }).oriQuestion, undefined)
   assert.equal(parseSearchArgs({ queries: ['a'], ori_question: 42 }).oriQuestion, undefined)
   assert.equal(parseSearchArgs({ queries: ['a'], ori_question: 'p\n\nq' }).oriQuestion, 'p q')
+})
+
+test('parseSearchArgs 按码点校验 query 不超 128 字符（128 emoji 放行，129 报错）', () => {
+  const ok = '🔍'.repeat(128)
+  assert.deepEqual(parseSearchArgs({ queries: [ok] }).queries, [ok])
+  assert.throws(
+    () => parseSearchArgs({ queries: ['🔍'.repeat(129)] }),
+    /each query must be at most 128 characters/,
+  )
+})
+
+test('parseFetchUrl 校验非空、协议、host、凭据与 8192 长度上限', () => {
+  assert.equal(parseFetchUrl('  https://example.com/a?x=1  '), 'https://example.com/a?x=1')
+  assert.throws(() => parseFetchUrl('   '), /url must be a non-empty string/)
+  assert.throws(() => parseFetchUrl('ftp://example.com/a'), /valid http or https URL/)
+  assert.throws(() => parseFetchUrl('not-a-url'), /valid http or https URL/)
+  assert.throws(() => parseFetchUrl('https://user:pass@example.com/'), /must not contain credentials/)
+  assert.throws(() => parseFetchUrl(`https://example.com/${'a'.repeat(8190)}`), /at most 8192 characters/)
 })
 
 test('mergeSearchResults round-robin 按 URL 去重', () => {
