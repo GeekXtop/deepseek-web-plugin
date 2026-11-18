@@ -65,6 +65,31 @@ test('TOOLS 常量与 tools/list 同构，SERVER_INFO 版本与 manifest 一致'
   assert.equal(SERVER_INFO.version, manifest.version)
 })
 
+test('Antigravity 插件清单、mcp_config.json 与 SKILL.md 结构及版本一致性', () => {
+  const zcodeManifest = JSON.parse(readFileSync(new URL('../.zcode-plugin/plugin.json', import.meta.url), 'utf8'))
+  const agyManifest = JSON.parse(readFileSync(new URL('../.antigravity-plugin/plugin.json', import.meta.url), 'utf8'))
+  const marketplace = JSON.parse(readFileSync(new URL('../marketplace.json', import.meta.url), 'utf8'))
+  const mcpConfig = JSON.parse(readFileSync(new URL('../mcp_config.json', import.meta.url), 'utf8'))
+  const skillMd = readFileSync(new URL('../skills/deepseek-web/SKILL.md', import.meta.url), 'utf8')
+
+  assert.equal(agyManifest.name, SERVER_INFO.name)
+  assert.equal(agyManifest.version, SERVER_INFO.version)
+  assert.equal(agyManifest.description, zcodeManifest.description)
+  assert.equal(agyManifest.description, marketplace.plugins[0].description)
+
+  const server = mcpConfig.mcpServers['deepseek-web']
+  assert.equal(server.type, undefined)
+  assert.equal(server.command, 'node')
+  assert.deepEqual(server.args, ['${PLUGIN_ROOT}/server.mjs'])
+  assert.equal(server.env.DEEPSEEK_API_KEY, '${DEEPSEEK_API_KEY}')
+  assert.ok(server.variables.some(v => v.name === 'DEEPSEEK_API_KEY'))
+
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(skillMd)
+  assert.ok(fm)
+  assert.match(fm[1], /^name:\s*deepseek-web$/m)
+  assert.match(fm[1], /^description:\s*.+$/m)
+})
+
 test('search 调用：多 query 并发、共享 URL 去重、ori_question 经 boundQuestion', async () => {
   const s1 = { url: 'https://shared.example/1', title: 'A', snippet: 'x' }
   const s2 = { url: 'https://only-q1.example/2', title: 'B', snippet: 'y' }

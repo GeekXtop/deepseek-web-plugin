@@ -18,7 +18,7 @@
 
 | 工具 | 干什么 | 参数 |
 |---|---|---|
-| `deepseek_web_search` | 联网搜索，返回来源列表（标题 / URL / 摘要 / 发布时间） | `queries`：1–4 个搜索词，并发执行、按 URL 去重合并、最多 8 条；`ori_question`：可选，触发搜索的原始问题，帮助引擎理解意图 |
+| `deepseek_web_search` | 联网搜索，返回来源列表（标题 / URL / 摘要 / 发布时间） | `queries`：1–4 个搜索词（每条不超过 128 个字符），并发执行、按 URL 去重合并、最多 8 条；`ori_question`：可选，触发搜索的原始问题，帮助引擎理解意图 |
 | `deepseek_web_fetch` | 抓取指定网页，返回 Markdown 正文（整体上限 5 万字符，超出自动截断） | `url` |
 
 > [!TIP]
@@ -34,7 +34,7 @@
 
 ### ② config.json 手动注册
 
-不装插件、只注册 MCP server——把下面一段并进 `~/.zcode/cli/config.json` 的 `mcp.servers`（key 配在条目 `env`，见[下文](#配置-api-key)方式 2）：
+不装插件、只注册 MCP server——把下面一段并进 `~/.zcode/cli/config.json` 的 `mcp.servers`（key 配在条目 `env`，见[下文](#配置-api-key)途径 2）：
 
 ```json
 {
@@ -54,7 +54,27 @@
 > [!IMPORTANT]
 > 已装插件的情况下，这条同名条目会**覆盖**插件清单的注册——插件用户想手动指定路径或换 key，走的也是这里。
 
-### ③ 其他 MCP harness（Claude Code / Codex / …）
+### ③ Antigravity
+
+原生插件形态，两种装法：
+
+**方式 A · 插件挂载**：把本仓库放入 `~/.gemini/config/plugins/`，或在 `~/.gemini/config/plugins.json` 里引用仓库目录；然后在插件页面填写 `DEEPSEEK_API_KEY` 变量（见[下文](#配置-api-key)途径 3）。插件自带的 `skills/deepseek-web/SKILL.md` 会让 agent 直接掌握二段式检索与搜索操作符用法。
+
+**方式 B · 手动注册**：把下面一段并进全局 `~/.gemini/config/mcp_config.json` 的 `mcpServers`（key 配在条目 `env`，见[下文](#配置-api-key)途径 2）：
+
+```json
+{
+  "mcpServers": {
+    "deepseek-web": {
+      "command": "node",
+      "args": ["/path/to/deepseek-web-plugin/server.mjs"],
+      "env": { "DEEPSEEK_API_KEY": "sk-..." }
+    }
+  }
+}
+```
+
+### ④ 其他 MCP harness（Claude Code / Codex / …）
 
 server 是标准 MCP stdio，任何兼容 harness 都只差一段注册配置。
 
@@ -86,15 +106,16 @@ env = { "DEEPSEEK_API_KEY" = "sk-..." }
 
 ## 配置 API Key
 
-在 [DeepSeek 开放平台](https://platform.deepseek.com)创建 API Key（`sk-` 开头）。server 只读进程环境变量 `DEEPSEEK_API_KEY`，两种注入方式任选其一：
+在 [DeepSeek 开放平台](https://platform.deepseek.com)创建 API Key（`sk-` 开头）。server 只读进程环境变量 `DEEPSEEK_API_KEY`，三种注入途径任选其一：
 
-1. **插件设置页（推荐）**：Settings → 插件管理 → 已安装 → deepseek-web-plugin → 设置，填 `api_key` 字段。key 存 ZCode 的插件设置存储，不进任何仓库文件。
-2. **`config.json` 条目 `env`**：见安装路径 ②，key 写在条目的 `env` 字段里。适合开发机 / 已有手动注册的场景。
+1. **环境变量**：启动 client 前在 shell 或系统环境里导出 `DEEPSEEK_API_KEY=sk-...`，对所有 harness 通用。
+2. **客户端 MCP 配置的 `env` 字段**：key 写在注册条目的 `env` 里（见安装 ② / ③ / ④ 各示例），由 client 注入进程环境。适合已有手动注册配置的场景。
+3. **插件设置页**：ZCode 填 `api_key` 字段，Antigravity 填 `DEEPSEEK_API_KEY` 变量。key 存各 client 的插件设置存储，不进任何仓库文件。
 
 > [!NOTE]
-> 两种都留空时，会话里调用工具会返回缺 key 的指引错误，不会静默失败。
+> 三种途径都留空时，会话里调用工具会返回缺 key 的指引错误（提示可在环境变量、客户端 MCP 配置 `env` 或插件设置中填入），不会静默失败。
 
-**计费与限速**：Search 与 Fetch 各 **¥5 / 1000 次成功请求**（失败、空结果不计费），与返回条数无关。限速按账号粒度共享（约 5 QPS 量级，多个会话 / 进程共用同一额度），server 内部已做请求间隔 ≥200ms 的保守限速。
+**计费与限速**：Search 与 Fetch 各 **¥5 / 1000 次成功请求**（失败、空结果不计费），与返回条数无关。官方限速为 Search 100 QPS / Fetch 25 QPS（另对目标域名限速）；server 内部已做请求间隔 ≥50ms 的保守限速（约 20 QPS，低于 Fetch 上限），多会话 / 进程共用同一账号额度。
 
 ## 搜索语法
 
@@ -103,10 +124,14 @@ env = { "DEEPSEEK_API_KEY" = "sk-..." }
 | 操作符 | 作用 | 示例 |
 |---|---|---|
 | `site:` / `-site:` | 限定 / 排除站点 | `site:example.com` |
+| `OR` | 组合多个词，任一命中即可 | `vite OR webpack` |
 | `after:` / `before:` | 时间过滤 | `after:2026-01-01`、`before:2026` |
 | `lang:` | 语言过滤 | `lang:zh,en` |
 | `"…"` | 精确短语匹配 | `"exact phrase"` |
 | `-词` | 排除关键词 | `-公告` |
+
+> [!NOTE]
+> 每条搜索词（含操作符）不超过 128 个字符，超长会被拒绝——精简关键词，不要截掉尾部操作符。
 
 ## 工作原理
 
@@ -140,10 +165,13 @@ printf '%s\n' \
 仓库结构：
 
 ```
-server.mjs           MCP stdio server
-test/                node:test 单测
-.zcode-plugin/       插件 manifest 与市场清单
-docs/superpowers/    设计文档与实现计划
+server.mjs              MCP stdio server
+test/                   node:test 单测
+.zcode-plugin/          ZCode 插件 manifest 与市场清单
+.antigravity-plugin/    Antigravity 插件 manifest
+mcp_config.json         Antigravity MCP 注册与变量声明
+skills/deepseek-web/    配套技能（SKILL.md）
+docs/superpowers/       设计文档与实现计划
 ```
 
 设计文档见 `docs/superpowers/specs/`，实现计划见 `docs/superpowers/plans/`。

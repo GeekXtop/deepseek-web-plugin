@@ -1,0 +1,15 @@
+{
+  "name": "deepseek-web-plugin",
+  "displayName": "DeepSeek Web Search",
+  "version": "0.2.1",
+  "description": "把 DeepSeek 联网搜索装进任何 MCP 兼容的编码 agent",
+  "author": {
+    "name": "GeekXtop"
+  },
+  "repository": "https://github.com/GeekXtop/deepseek-web-plugin",
+  "suggestedPrompts": [
+    "联网搜最新资料：先并发搜索拿来源摘要，再挑值得深读的网页抓全文对照总结",
+    "用 site: 限定在官方文档站内搜索 API 用法，只引用权威来源",
+    "用 \"确切错误信息\" 精确短语搜索并排除噪音站点，抓最相关的一两篇全文定位问题"
+  ]
+}

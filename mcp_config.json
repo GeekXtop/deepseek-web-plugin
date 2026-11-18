@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "deepseek-web": {
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/server.mjs"],
+      "env": {
+        "DEEPSEEK_API_KEY": "${DEEPSEEK_API_KEY}"
+      },
+      "variables": [
+        {
+          "name": "DEEPSEEK_API_KEY",
+          "title": "DeepSeek API Key",
+          "description": "DeepSeek API Key（sk- 开头），在插件设置页填写；留空则改用环境变量或客户端 MCP 配置的 env 注入。"
+        }
+      ]
+    }
+  }
+}
