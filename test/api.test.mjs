@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  decideRetry, extractApiErrorMessage, createRateLimiter, createApiClient, SERVER_INFO,
+  decideRetry, extractApiErrorMessage, createRateLimiter, createApiClient, mapSearchResponse,
+  SEARCH_COUNT, SERVER_INFO,
 } from '../server.mjs'
 
 /** 构造 Response 序列的 stub fetch，记录每次调用。 */
@@ -75,7 +76,7 @@ test('search 成功：URL、四件套 headers、redirect:error、body 字段', a
   assert.equal(options.headers.authorization, 'Bearer sk-test')
   assert.equal(options.headers['user-agent'], `${SERVER_INFO.name}/${SERVER_INFO.version}`)
   const body = JSON.parse(options.body)
-  assert.deepEqual(body, { query: 'q1', count: 8, need_content: false, ori_question: '原始问题' })
+  assert.deepEqual(body, { query: 'q1', count: 10, need_content: false, ori_question: '原始问题' })
 })
 
 test('search 的 oriQuestion 缺省时不带 ori_question 字段', async () => {
@@ -83,7 +84,7 @@ test('search 的 oriQuestion 缺省时不带 ori_question 字段', async () => {
   const client = makeClient(stubFetch([{ payload: { results: [] } }], log))
   await client.search('q1')
   const body = JSON.parse(log[0].options.body)
-  assert.deepEqual(body, { query: 'q1', count: 8, need_content: false })
+  assert.deepEqual(body, { query: 'q1', count: 10, need_content: false })
 })
 
 test('search 429 一次后成功：注入延迟 1000ms 且不真 sleep', async () => {
@@ -147,4 +148,40 @@ test('fetchPage 成功返回 content，缺 content 抛错', async () => {
   assert.deepEqual(JSON.parse(log[0].options.body), { url: 'https://x' })
   const bad = makeClient(stubFetch([{ payload: { title: 'T' } }]))
   await assert.rejects(() => bad.fetchPage('https://x'), /invalid response body/)
+})
+
+test('SEARCH_COUNT 与 DEFAULT_TIMEOUT_MS 钉死为官方口径', async () => {
+  assert.equal(SEARCH_COUNT, 10)
+  // DEFAULT_TIMEOUT_MS 动态取：实现前该导出不存在，静态引入会让整文件链接失败
+  const mod = await import('../server.mjs')
+  assert.equal(mod.DEFAULT_TIMEOUT_MS, 30000)
+})
+
+test('mapSearchResponse 容忍可选字段为 null 或 undefined', () => {
+  const mapped = mapSearchResponse({
+    results: [
+      { url: 'https://a.example', title: null, snippet: undefined, summary: null },
+      { url: 'https://b.example', title: 'B', snippet: 's', summary: 'sum', date: '2026-11-19' },
+    ],
+  })
+  assert.deepEqual(mapped, [
+    { url: 'https://a.example' },
+    { url: 'https://b.example', title: 'B', snippet: 's', summary: 'sum', publishedAt: '2026-11-19' },
+  ])
+  assert.throws(() => mapSearchResponse({ results: [{ url: 'https://a.example', summary: 123 }] }), /invalid response body/)
+})
+
+test('createApiClient 默认传入 AbortSignal，超时异常映射为请求失败', async () => {
+  const log = []
+  const client = createApiClient({
+    baseUrl: 'https://api.deepseek.com/v1/tools',
+    apiKey: 'sk-test',
+    fetchImpl: async (url, options) => {
+      log.push(options)
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    },
+    limiter: createRateLimiter(0),
+  })
+  await assert.rejects(() => client.search('q'), /DeepSeek 请求失败：/)
+  assert.ok(log[0].signal instanceof AbortSignal)
 })

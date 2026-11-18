@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
-import { createMcpServer, SERVER_INFO, TOOLS } from '../server.mjs'
+import { createMcpServer, SERVER_INFO, TOOLS, withKeyGuard } from '../server.mjs'
 
 const execFileAsync = promisify(execFile)
 
@@ -55,6 +55,7 @@ test('tools/list 返回两个工具与 schema 要点', async () => {
   const search = res.result.tools[0]
   assert.deepEqual(search.inputSchema.required, ['queries'])
   assert.equal(search.inputSchema.properties.queries.type, 'array')
+  assert.equal(search.inputSchema.properties.queries.description, '1-4 个搜索词（每条不超过 128 个字符）')
   assert.deepEqual(res.result.tools[1].inputSchema.required, ['url'])
 })
 
@@ -120,7 +121,7 @@ test('search 上游错误 → isError 文本为错误消息', async () => {
 })
 
 test('无 key 场景 → isError 提示 DEEPSEEK_API_KEY', async () => {
-  const apiClient = recordingClient({ error: new Error('未配置 DEEPSEEK_API_KEY：请在 mcpServers 条目的 env 中设置。') })
+  const apiClient = recordingClient({ error: new Error('未配置 DEEPSEEK_API_KEY：请在环境变量、客户端 MCP 配置的 env 字段或插件设置中填入有效 Key。') })
   const handle = createMcpServer({ apiClient })
   const res = JSON.parse(await handle(JSON.stringify({
     jsonrpc: '2.0', id: 6, method: 'tools/call',
@@ -211,4 +212,17 @@ test('argv[1] 为 undefined 的嵌入宿主 import server.mjs 不崩', async () 
   } catch (err) {
     assert.fail(`import 期崩溃：${err.stderr ?? err.message}`)
   }
+})
+
+test('withKeyGuard 拦截空串、空白与未展开占位符并返回通用指引', async () => {
+  const inner = recordingClient()
+  for (const badKey of [undefined, '', '   ', '${DEEPSEEK_API_KEY}', '${user_config.api_key}']) {
+    const guarded = withKeyGuard(inner, badKey)
+    await assert.rejects(
+      () => guarded.search('q'),
+      err => err.message.includes('DEEPSEEK_API_KEY') && !err.message.includes('.zcode'),
+    )
+    await assert.rejects(() => guarded.fetchPage('https://example.com'), /DEEPSEEK_API_KEY/)
+  }
+  assert.equal(inner.calls.length, 0)
 })
